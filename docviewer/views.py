@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from django.http import HttpResponse
 from .models import Document
 from .serializers import DocumentSerializer
-from .utils import convert_docx_to_html, update_document_html
+from .utils import convert_docx_to_html, update_document_html,convert_pdf_to_html
 import os
 
 class DocumentViewSet(viewsets.ModelViewSet):
@@ -16,20 +16,22 @@ class DocumentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             document = serializer.save()
-            
-            # Determine file type and convert if necessary
             file_path = document.file.path
             file_ext = os.path.splitext(file_path)[1].lower()
-            
+
+            html_content = None
             if file_ext == '.docx':
                 html_content = convert_docx_to_html(file_path)
-                document.html_content = html_content
-                document.save()
+            elif file_ext == '.pdf':
+                html_content = convert_pdf_to_html(file_path)
             elif file_ext == '.html':
                 with open(file_path, 'r', encoding='utf-8') as file:
-                    document.html_content = file.read()
+                    html_content = file.read()
+
+            if html_content is not None:
+                document.html_content = html_content
                 document.save()
-            
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
